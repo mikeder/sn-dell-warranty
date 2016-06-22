@@ -1,0 +1,1 @@
+This script will query the cmdb_ci_computer table for all computers that have a serial number and a manufacturer name that contains Dell. It will then query the Dell warranty API with each serial number, parse the response to determine if there is a valid warranty for the given serial number and if so, insert or update the u_dell_warranty table with the warranty info.
