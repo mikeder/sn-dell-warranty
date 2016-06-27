@@ -65,23 +65,52 @@ function CheckActive(a_end_date) {
 	}
 }
 
-// Check if the warranty record being updated has been updated in the last day
+// Check if an update is due per the Dell API access guidelines
 function CheckNeedsUpdate(a_serial_number) {
 	var gr = new GlideRecord('u_dell_warranty');
 	gr.addQuery('u_serialnumber', a_serial_number);
 	gr.query();
-	//gs.log('Warranty table contains '+gr.getRowCount()+' records for serial number '+a_serial_number);
 	while(gr.next()) {
-		var dateDiff = gs.dateDiff(gr.sys_updated_on, now(), true);
-		//gs.log('CheckNeedsUpdate() dateDiff: '+dateDiff);
-		if (dateDiff < 86400) {
-			//gs.log('Warranty record: '+a_serial_number+' updated on :'+gr.sys_updated_on+', skipping update.');
+		var timeSinceUpdated = gs.dateDiff(gr.sys_updated_on, now(), true);
+		var timeUntilExpiration = gs.dateDiff(gr.u_enddate, now(), true);
+		
+/*
+		24hrs = 86400
+		7 days = 604800
+		15 days = 1296000
+		30 days = 2592000
+		45 days = 3888000
+		60 days = 5184000
+		90 days = 7776000
+		1 year = 31536000 
+*/
+		if (timeUntilExpiration > 31536000 && timeSinceUpdated > 5184000) {
+			//gs.log("[Dell Warranty] Expiration > 1 year away and Updated > 60 days ago");
+			return true;
+		} else if (timeUntilExpiration < 31536000 && timeSinceUpdated > 2592000) {
+			//gs.log("[Dell Warranty] Expiration < 1 year away and Updated > 30 days ago");
+			return true;
+		} else if (timeUntilExpiration < 7776000 && timeUntilExpiration > 3888000 && timeSinceUpdated > 1296000) {
+			//gs.log("[Dell Warranty] Expiration between 45 and 90 days away and Updated > 15 days ago");
+			return true;
+		} else if (timeUntilExpiration < 3888000 && timeUntilExpiration > 2592000 && timeSinceUpdated > 604800) {
+			//gs.log("[Dell Warranty] Expiration between 30 and 45 days away and Updated > 7 days ago");
+			return true;
+		} else if (timeUntilExpiration > -864000 && timeUntilExpiration < 2592000 && timeSinceUpdated > 86400) {
+			//gs.log("[Dell Warranty] Expiration between -10 and 30 days away and Updated > 24 hours ago");
+			return true;
+		} else if (timeUntilExpiration > -5184000 && timeUntilExpiration < -864000 && timeSinceUpdated > 2592000) {
+			//gs.log("[Dell Warranty] Expired between -10 and -60 days ago and Updated > 30 hours ago");
+			return true;
+		} else if (timeUntilExpiration < -5184000) {
+			//gs.log("[Dell Warranty] Expired > 60 days ago");
 			return false;
 		} else {
-			//gs.log('Warranty record for serial number '+a_serial_number+' last updated '+gr.sys_updated_on+' updating record.');
-			return true;
-		}	
+			//gs.log("[Dell Warranty] Catch All Else");
+			return false;
+		}
 	}
+	//gs.log("[Dell Warranty] No existing record of serial number, perform the API call/update");
 	return true;
 }
 
